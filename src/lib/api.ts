@@ -23,16 +23,22 @@ function fmt(price: number): string {
   return price.toLocaleString("id-ID");
 }
 
-let productIdCounter = 10;
-let transactionIdCounter = 100;
-
 const stored = typeof window !== "undefined" ? localStorage.getItem("pos_data") : null;
 const initialData: {
   products: Product[];
   transactions: Transaction[];
   cart: CartItem[];
 } = stored
-  ? JSON.parse(stored)
+  ? (() => {
+      const parsed = JSON.parse(stored);
+      const seen = new Map<number, Product>();
+      parsed.products.forEach((p: Product) => seen.set(p.id, p));
+      parsed.products = Array.from(seen.values());
+      const seenCart = new Map<number, CartItem>();
+      parsed.cart.forEach((c: CartItem) => seenCart.set(c.product_id, c));
+      parsed.cart = Array.from(seenCart.values());
+      return parsed;
+    })()
   : {
       products: [
         { id: 1, name: "Kopi Susu", price: 15000, stock_quantity: 50, is_available: true, created_at: "2026-06-01T00:00:00Z", updated_at: "2026-06-15T10:00:00Z" },
@@ -58,6 +64,15 @@ const initialData: {
     };
 
 const db = { ...initialData };
+
+let productIdCounter = (() => {
+  const max = initialData.products.reduce((m, p) => Math.max(m, p.id), 0);
+  return Math.max(max, 10);
+})();
+let transactionIdCounter = (() => {
+  const max = initialData.transactions.reduce((m, t) => Math.max(m, t.id), 0);
+  return Math.max(max, 100);
+})();
 
 function save() {
   try { localStorage.setItem("pos_data", JSON.stringify({ products: db.products, transactions: db.transactions, cart: db.cart })); } catch {}
